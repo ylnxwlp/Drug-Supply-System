@@ -22,6 +22,6 @@ public class UserInformationVO implements Serializable {
 
     private String firmName; //用户公司名
 
-    private Long status; //用户状态
+    private Long accountStatus; //用户状态
 
 }

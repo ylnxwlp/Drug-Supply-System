@@ -14,6 +14,7 @@ public class MessageConstant {
     public static final String ACCOUNT_DUPLICATE = "该邮箱已经注册过！";
     public static final String INSUFFICIENT_PRIVILEGES= "权限不足";
     public static final String AUTHENTICATION_FAILURE = "认证失败，请重新登录";
+    public static final String EMAIL_TYPE_ERROR = "无效的邮件发送类型";
     public static final String JWT_PARSE_FAILED = "无效令牌";
     public static final String WEBSOCKET_SEND_FAILED = "消息发送失败";
     public static final String DRUG_INFORMATION_ERROR = "药品信息获取失败";

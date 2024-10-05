@@ -2,16 +2,22 @@ package com.supply.service.impl;
 
 import cn.hutool.core.date.DatePattern;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.RandomUtil;
+import com.alibaba.fastjson.JSON;
+import com.supply.dto.PageQueryDTO;
 import com.supply.entity.*;
+import com.supply.enumeration.EmailType;
 import com.supply.mapper.AdminMapper;
 import com.supply.mapper.UserMapper;
+import com.supply.result.PageResult;
 import com.supply.service.AdminService;
-import com.supply.utils.EmailUtil;
 import com.supply.vo.ReportInformationVO;
 import com.supply.vo.UserInformationVO;
 import com.supply.vo.VerificationInformationVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.security.core.Authentication;
@@ -33,9 +39,9 @@ public class AdminServiceImpl implements AdminService {
 
     private final UserMapper userMapper;
 
-    private final EmailUtil emailUtil;
-
     private final RedisTemplate<Object, Object> redisTemplate;
+
+    private final RabbitTemplate rabbitTemplate;
 
     /**
      * 个人信息回显
@@ -82,7 +88,7 @@ public class AdminServiceImpl implements AdminService {
             return vo;
         }).collect(Collectors.toList());
         if (!list.isEmpty()) {
-            redisTemplate.opsForValue().set(cacheKey, list, 1, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set(cacheKey, list, 55 + RandomUtil.randomInt(10), TimeUnit.MINUTES);
         } else {
             log.debug("工种编号{}下暂时没有新的申请信息", type);
         }
@@ -107,12 +113,18 @@ public class AdminServiceImpl implements AdminService {
             adminMapper.checkSuccessfully(id, adminId, LocalDateTime.now());
             userMapper.setAuthority(applyUserId, applyUserInformation.getWorkType());
             redisTemplate.delete("allUsers");
-            emailUtil.normalMail(email, String.format("你的账户信息审核已通过，立即可用。审核人编号：%d", adminId));
+            String jsonString = JSON.toJSONString(EmailMessage.builder()
+                    .emailAddress(email)
+                    .emailType(EmailType.CHECK_SUCCESS.toString())
+                    .adminId(adminId)
+                    .build());
+            CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
+            rabbitTemplate.convertAndSend("email.direct", "emailDirect", jsonString, correlationData);
         } else {
             userMapper.changeStatusToCheckFailed(applyUserId, LocalDateTime.now());
             adminMapper.checkUnsuccessfully(id, adminId);
-            emailUtil.normalMail(email, String.format("你的账户信息审核未通过，请重新提交。审核人编号：%d", adminId));
         }
+        redisTemplate.delete("VerificationInformation:" + applyUserInformation.getWorkType());
     }
 
     /**
@@ -143,7 +155,7 @@ public class AdminServiceImpl implements AdminService {
         }).collect(Collectors.toList());
 
         if (!list.isEmpty()) {
-            redisTemplate.opsForValue().set("report", list, 3, TimeUnit.HOURS);
+            redisTemplate.opsForValue().set("report", list, 175 + RandomUtil.randomInt(10), TimeUnit.MINUTES);
         }
         return list;
     }
@@ -155,7 +167,6 @@ public class AdminServiceImpl implements AdminService {
      * @param isIllegal 是否违规，1为是，2为否
      * @param isBlocked 是否进行封禁处理
      */
-    @Transactional
     public void dealReport(Long id, Integer isIllegal, Integer isBlocked) {
         log.debug("管理员处理举报id：{}，违规标志：{}", id, isIllegal);
         Report report = adminMapper.getReportInformation(id);
@@ -163,33 +174,32 @@ public class AdminServiceImpl implements AdminService {
         String userEmail = userMapper.getUserInformationById(report.getUserId()).getEmail();
         adminMapper.dealReport(id);
         if (isIllegal == 1 && isBlocked == 2) {
-            emailUtil.normalMail(reportUserEmail, """
-                    你好，
-                    经过我们的核实，发现你的举报对象确实存在违规行为，因而举报成立。
-                    我们已对其进行警告，并将持续关注，若发现其仍有违反规定的行为，将采取封号措施，感谢你对供应系统做出的贡献。""");
-            emailUtil.normalMail(userEmail, """
-                    你好，
-                    你已被举报。经过我们的核实，发现你的账号确实存在违规行为。
-                    如果仍有违规行为，我们可能对你的账号进行封号处理，如有异议，请联系管理人员。""");
+            //向mq发送消息
+            String jsonString = JSON.toJSONString(EmailMessage.builder()
+                    .emailAddress(reportUserEmail)
+                    .anotherEmailAddress(userEmail)
+                    .emailType(EmailType.REPORT_BLOCKED.toString()));
+            CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
+            rabbitTemplate.convertAndSend("email.direct", "emailDirect", jsonString, correlationData);
         } else if (isIllegal == 1 && isBlocked == 1) {
             //将被举报人的账户封禁
-            userMapper.blockAccount(report.getUserId(),LocalDateTime.now());
-            //向举报人发送邮件告知举报成功
-            emailUtil.normalMail(reportUserEmail, """
-                    你好，
-                    经过我们的核实，发现你的举报对象确实存在违规行为，因而举报成立。
-                    我们已对其采取封号措施，感谢你对供应系统做出的贡献。""");
-            //再向被举报人发送邮件
-            emailUtil.normalMail(userEmail, """
-                    你好，
-                    你已被举报。经过我们的核实，发现你的账号确实存在违规行为。
-                    我们已对你的账号进行封号处理，如有异议请联系管理人员。""");
+            userMapper.blockAccount(report.getUserId(), LocalDateTime.now());
+            //向mq发送消息
+            String jsonString = JSON.toJSONString(EmailMessage.builder()
+                    .emailAddress(reportUserEmail)
+                    .anotherEmailAddress(userEmail)
+                    .emailType(EmailType.REPORT_BLOCKED.toString()));
+            CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
+            rabbitTemplate.convertAndSend("email.direct", "emailDirect", jsonString, correlationData);
         } else {
-            emailUtil.normalMail(reportUserEmail, """
-                    你好，
-                    经过我们的核实，发现你的举报对象暂时不存在违规行为，因而举报不成立。
-                    我们将持续关注，若发现其有违反规定的行为，将采取警告或封号措施，感谢你对供应系统做出的贡献。""");
+            //向mq发送消息
+            String jsonString = JSON.toJSONString(EmailMessage.builder()
+                    .emailAddress(reportUserEmail)
+                    .emailType(EmailType.REPORT_BLOCKED.toString()));
+            CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
+            rabbitTemplate.convertAndSend("email.direct", "emailDirect", jsonString, correlationData);
         }
+        redisTemplate.delete("report");
     }
 
     /**
@@ -197,7 +207,7 @@ public class AdminServiceImpl implements AdminService {
      *
      * @return 用户信息
      */
-    public List<UserInformationVO> getAllUsers() {
+    public PageResult getAllUsers(PageQueryDTO pageQueryDTO) {
         List<UserInformationVO> list = null;
         try {
             list = (List<UserInformationVO>) redisTemplate.opsForValue().get("allUsers");
@@ -206,7 +216,7 @@ public class AdminServiceImpl implements AdminService {
         }
         if (list != null) {
             log.debug("缓存中的用户信息：{}", list);
-            return list;
+            return new PageResult(list.size(), paginateList(list, pageQueryDTO.getPage(), pageQueryDTO.getPageSize()));
         }
         log.debug("查询所有用户信息");
         List<User> users = userMapper.getAllUsers();
@@ -216,25 +226,27 @@ public class AdminServiceImpl implements AdminService {
             return vo;
         }).collect(Collectors.toList());
         if (!list.isEmpty()) {
-            redisTemplate.opsForValue().set("allUsers", list, 30, TimeUnit.MINUTES);
+            redisTemplate.opsForValue().set("allUsers", list, 25 + RandomUtil.randomInt(10), TimeUnit.MINUTES);
         }
-        return list;
+        return new PageResult(list.size(), paginateList(list, pageQueryDTO.getPage(), pageQueryDTO.getPageSize()));
     }
 
     /**
      * 封禁用户
+     *
      * @param id 用户id
      */
     public void block(Long id) {
-        userMapper.blockAccount(id,LocalDateTime.now());
+        userMapper.blockAccount(id, LocalDateTime.now());
     }
 
     /**
      * 解封用户
+     *
      * @param id 用户id
      */
     public void liftUser(Long id) {
-        userMapper.liftUser(id,LocalDateTime.now());
+        userMapper.liftUser(id, LocalDateTime.now());
     }
 
     /**
@@ -244,5 +256,22 @@ public class AdminServiceImpl implements AdminService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         LoginUser loginUser = (LoginUser) authentication.getPrincipal();
         return loginUser.getUser().getId();
+    }
+
+    /**
+     * 分页查询截取
+     *
+     * @param list     截取集合
+     * @param page     起始页面
+     * @param pageSize 页面数据数
+     * @return 截取后的集合
+     */
+    private List<UserInformationVO> paginateList(List<UserInformationVO> list, int page, int pageSize) {
+        int fromIndex = (page - 1) * pageSize;
+        int toIndex = Math.min(fromIndex + pageSize, list.size());
+        if (fromIndex >= list.size()) {
+            return new ArrayList<>();
+        }
+        return list.subList(fromIndex, toIndex);
     }
 }

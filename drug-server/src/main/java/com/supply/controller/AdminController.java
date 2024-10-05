@@ -1,5 +1,7 @@
 package com.supply.controller;
 
+import com.supply.dto.PageQueryDTO;
+import com.supply.result.PageResult;
 import com.supply.result.Result;
 import com.supply.service.AdminService;
 import com.supply.vo.ReportInformationVO;
@@ -67,9 +69,9 @@ public class AdminController {
     @GetMapping("/allUsers")
     @Operation(summary = "查询全部通过认证的用户信息接口")
     @PreAuthorize("hasAuthority('admin:getAllUsers')")
-    public Result<List<UserInformationVO>> getAllUsers() {
-        List<UserInformationVO> list = adminService.getAllUsers();
-        return Result.success(list);
+    public Result<PageResult> getAllUsers(@RequestBody PageQueryDTO pageQueryDTO) {
+        PageResult pageResult = adminService.getAllUsers(pageQueryDTO);
+        return Result.success(pageResult);
     }
 
     @PutMapping("/block/{id}")

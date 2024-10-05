@@ -1,5 +1,7 @@
 package com.supply.service;
 
+import com.supply.dto.PageQueryDTO;
+import com.supply.result.PageResult;
 import com.supply.vo.ReportInformationVO;
 import com.supply.vo.UserInformationVO;
 import com.supply.vo.VerificationInformationVO;
@@ -20,7 +22,7 @@ public interface AdminService {
 
     void dealReport(Long id, Integer isIllegal,Integer isBlocked);
 
-    List<UserInformationVO> getAllUsers();
+    PageResult getAllUsers(PageQueryDTO pageQueryDTO);
 
     void block(Long id);
 

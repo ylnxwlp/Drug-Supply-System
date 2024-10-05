@@ -1,11 +1,12 @@
 package com.supply.service.impl;
 
-import cn.hutool.core.date.DatePattern;
-import cn.hutool.core.date.DateUtil;
+import com.alibaba.fastjson.JSON;
 import com.alibaba.fastjson.JSONObject;
 import com.supply.constant.JwtClaimsConstant;
 import com.supply.dto.UserLoginDTO;
+import com.supply.entity.EmailMessage;
 import com.supply.entity.LoginUser;
+import com.supply.enumeration.EmailType;
 import com.supply.exception.AccountStatusException;
 import com.supply.exception.LoginErrorException;
 import com.supply.mapper.UserMapper;
@@ -24,6 +25,8 @@ import org.apache.http.client.methods.HttpGet;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.springframework.amqp.rabbit.connection.CorrelationData;
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.RedisTemplate;
@@ -42,10 +45,7 @@ import com.supply.utils.EmailUtil;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -64,6 +64,8 @@ public class LoginServiceImpl implements LoginService {
     private final AuthenticationConfiguration authenticationConfiguration;
 
     private final JwtProperties jwtProperties;
+
+    private final RabbitTemplate rabbitTemplate;
 
     @Value("${drug.locationKey.key}")
     private String key;
@@ -131,7 +133,7 @@ public class LoginServiceImpl implements LoginService {
         BeanUtils.copyProperties(userInformationDTO, user);
         user.setPassword(passwordEncoder.encode(userInformationDTO.getPassword()));
         log.info("用户更改的信息：{}", user);
-        userMapper.resetPassword(user,LocalDateTime.now());
+        userMapper.resetPassword(user, LocalDateTime.now());
     }
 
     /**
@@ -174,8 +176,14 @@ public class LoginServiceImpl implements LoginService {
             } catch (IOException e) {
                 log.error("获取登录位置失败");
             }
-            //再发送邮件进行提醒
-            emailUtil.promptEmail(location, DateUtil.format(LocalDateTime.now(), DatePattern.NORM_DATETIME_PATTERN), u.getEmail());
+            //再发送消息到交换机异步发送邮件进行提醒
+            String jsonString = JSON.toJSONString(EmailMessage.builder()
+                    .emailType(EmailType.LOGIN.toString())
+                    .emailAddress(u.getEmail())
+                    .location(location)
+                    .build());
+            CorrelationData correlationData = new CorrelationData(UUID.randomUUID().toString());
+            rabbitTemplate.convertAndSend("email.direct", "emailDirect", jsonString, correlationData);
             return UserLoginVO.builder()
                     .token(jwt)
                     .id(Long.valueOf(userId))
@@ -201,19 +209,26 @@ public class LoginServiceImpl implements LoginService {
 
     /**
      * 重新上传身份文件接口
+     *
      * @param userInformationDTO 新身份证明文件
      */
     public void ReUploadIdentityFile(UserInformationDTO userInformationDTO) {
         User user = new User();
-        if(!userInformationDTO.getUsername().matches("^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")){
+        if (!userInformationDTO.getUsername().matches("^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$")) {
             user.setUsername(userInformationDTO.getUsername());
-        }else{
+        } else {
             user.setEmail(userInformationDTO.getUsername());
         }
         User u = userMapper.login(user);
         sendVerificationMessage(userInformationDTO, u);
     }
 
+    /**
+     * 认证
+     *
+     * @param userLoginDTO 用户登录信息
+     * @return 用户认证结果
+     */
     private Authentication getAuthentication(UserLoginDTO userLoginDTO) {
         AuthenticationManager authenticationManager;
         try {
@@ -232,6 +247,10 @@ public class LoginServiceImpl implements LoginService {
         return authenticate;
     }
 
+    /**
+     * @param userInformationDTO 用户认证信息
+     * @param u                  用户信息
+     */
     private void sendVerificationMessage(UserInformationDTO userInformationDTO, User u) {
         List<String> verificationImages = userInformationDTO.getVerificationImages();
         String images = String.join(",", verificationImages);

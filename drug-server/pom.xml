@@ -159,6 +159,12 @@
             <artifactId>spring-boot-starter-security</artifactId>
         </dependency>
 
+        <!--分页查询-->
+        <dependency>
+            <groupId>com.github.pagehelper</groupId>
+            <artifactId>pagehelper</artifactId>
+        </dependency>
+
         <dependency>
             <groupId>com.supply</groupId>
             <artifactId>drug-common</artifactId>

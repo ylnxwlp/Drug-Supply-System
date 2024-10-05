@@ -199,6 +199,14 @@
                 <artifactId>spring-boot-starter-security</artifactId>
                 <version>3.2.5</version>
             </dependency>
+
+            <!--分页查询-->
+            <dependency>
+                <groupId>com.github.pagehelper</groupId>
+                <artifactId>pagehelper</artifactId>
+                <version>5.2.0</version>
+            </dependency>
+
         </dependencies>
     </dependencyManagement>
 
