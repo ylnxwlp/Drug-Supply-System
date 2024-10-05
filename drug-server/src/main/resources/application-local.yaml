@@ -1,0 +1,36 @@
+drug:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    host: 192.168.65.150
+    port: 3306
+    database: drug
+    username: root
+    password: YLNX[OX1pyq9A24fQVfzechST+F0k6vmxd/rINMjpflCN+dN8JdK25YwbxDNfEFQ5j8dz]
+  alioss:
+    endpoint: https://oss-cn-hangzhou.aliyuncs.com
+    access-key-id: YLNX[Fxk03/IhuyujyJoA7U7rpIKTnJ0g8ZjjGGlZsaTpwuYwFo/4poA75Ho5aXQ8yxsOc3epEgu6S3/NKjI3hCWhGA==]
+    access-key-secret: YLNX[d1QPyCveenMxXNkAcO7Ho8MFXQgv0oRaKENGgatzI/Hulj6NmrJjryRepRBFYzWdFd6hC0yaNU6wtHgJW65vcg==]
+    bucket-name: pro11
+  mail:
+    host: smtp.qq.com
+    username: 3352580660@qq.com
+    password: YLNX[GW4k+shUummx9g9LiSFXPgATvzzbYNKsqUMbVi6EPI0/gexFbwWNBJFznuJ/g5KQO7BPUi2cLO7KsRb/Ir3Vmg==]
+    port: 465
+  locationKey:
+    key: YLNX[tgA4ZBIkWlbvndEeuhqoB7dVbKyy+xVUTDKuX/MnAWwiPamW7GCb5LUYFiezWpOr/bbH/BYQYWUi8zJ+yMDwzPacPIDcMDbeGGoapJ3SKBY=]
+  trace:
+    appId: 1
+    secret: 1
+  rabbitmq:
+    host: 192.168.65.150
+    port: 5672
+    virtual-host: /drug
+    username: drug
+    password: YLNX[OX1pyq9A24fQVfzechST+F0k6vmxd/rINMjpflCN+dN8JdK25YwbxDNfEFQ5j8dz]
+jasypt:
+  encryptor:
+    password: ylnxwlp
+    property:
+      prefix: "YLNX["
+      suffix: "]"
+    algorithm: PBEWithHmacSHA256AndAES_256
