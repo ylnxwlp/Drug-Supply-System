@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd" >
+<mapper namespace="com.supply.mapper.CommonMapper">
+    <update id="updateUserInformation" parameterType="com.supply.entity.User">
+        UPDATE user
+        <set>
+            <if test="username != null">username = #{username},</if>
+            <if test="firmName != null">firm_name = #{firmName},</if>
+            <if test="workType != null">work_type = #{workType},</if>
+            <if test="image != null">image = #{image},</if>
+            <if test="email != null">email = #{email},</if>
+            <if test="accountStatus != null">account_status = #{accountStatus},</if>
+            <if test="telephone != null">telephone = #{telephone},</if>
+            <if test="password != null">password = #{password},</if>
+            <if test="resume != null">resume = #{resume},</if>
+            <if test="updateTime != null">update_time = #{updateTime},</if>
+            <if test="age != null">age = #{age},</if>
+            <if test="IDNumber != null">id_number = #{IDNumber},</if>
+        </set>
+        WHERE id = #{id}
+    </update>
+
+    <delete id="removeBlacklist">
+        delete
+        from blacklist
+        where id in
+        <foreach collection="ids" item="id" open="(" close=")" separator=",">\
+            #{id}
+        </foreach>
+    </delete>
+
+</mapper>

@@ -26,8 +26,6 @@ public class SecurityConfig {
     private final AuthenticationEntryPointImpl authenticationEntryPoint;
 
 
-
-
     // 创建一个Bean，指定加密方式
     @Bean
     public BCryptPasswordEncoder passwordEncoder() {

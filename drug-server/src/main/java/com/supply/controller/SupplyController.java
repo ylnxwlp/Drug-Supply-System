@@ -46,6 +46,7 @@ public class SupplyController {
 
     @PutMapping("/drugs/modify/{id}")
     @Operation(summary = "修改药品信息接口")
+    @PreAuthorize("hasAuthority('supply:modify')")
     public Result<Objects> modifyDrugsInformation(@PathVariable Long id, @RequestBody DrugInformationDTO drugInformationDTO) {
         supplyService.modifyDrugsInformation(id, drugInformationDTO);
         return Result.success();
@@ -62,16 +63,16 @@ public class SupplyController {
     @PostMapping("/drugs/add")
     @Operation(summary = "药品信息增加接口")
     @PreAuthorize("hasAuthority('supply:addDrugs')")
-    public Result<Objects> addDrugs(@RequestBody DrugInformationDTO drugInformationDTO) {
-        supplyService.addDrugs(drugInformationDTO);
+    public Result<Objects> addDrugs(@RequestBody List<DrugInformationDTO> drugInformationDTOS) {
+        supplyService.addDrugs(drugInformationDTOS);
         return Result.success();
     }
 
-    @DeleteMapping("/drugs/delete/{id}")
+    @DeleteMapping("/drugs/delete")
     @Operation(summary = "药品信息删除接口")
     @PreAuthorize("hasAuthority('supply:deleteDrugs')")
-    public Result<Objects> deleteDrug(@PathVariable Long id) {
-        supplyService.deleteDrug(id);
+    public Result<Objects> deleteDrug(List<Long> ids) {
+        supplyService.deleteDrug(ids);
         return Result.success();
     }
 

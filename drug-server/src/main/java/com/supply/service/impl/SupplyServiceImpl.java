@@ -125,28 +125,32 @@ public class SupplyServiceImpl implements SupplyService {
     /**
      * 药品信息增加
      *
-     * @param drugInformationDTO 新药品信息
+     * @param drugInformationDTOS 新药品信息
      */
-    public void addDrugs(DrugInformationDTO drugInformationDTO) {
+    public void addDrugs(List<DrugInformationDTO> drugInformationDTOS) {
         Long userId = getCurrentUserId();
-        log.info("当前供应端增加药品信息：{}", drugInformationDTO);
-        SupplyDrug supplyDrug = new SupplyDrug();
-        BeanUtils.copyProperties(drugInformationDTO, supplyDrug);
-        supplyDrug.setUpdateTime(LocalDateTime.now());
-        supplyDrug.setUserId(getCurrentUserId());
-        supplyMapper.addDrugs(supplyDrug);
+        log.info("当前供应端：{}增加药品信息：{}", userId, drugInformationDTOS);
+        List<SupplyDrug> supplyDrugs = new ArrayList<>();
+        for (DrugInformationDTO drugInformationDTO : drugInformationDTOS) {
+            SupplyDrug supplyDrug = new SupplyDrug();
+            BeanUtils.copyProperties(drugInformationDTO, supplyDrug);
+            supplyDrug.setUpdateTime(LocalDateTime.now());
+            supplyDrug.setUserId(getCurrentUserId());
+            supplyDrugs.add(supplyDrug);
+        }
+        supplyMapper.addDrugs(supplyDrugs);
         redisTemplate.delete("supply:drugs:" + userId);
     }
 
     /**
      * 药品信息删除
      *
-     * @param id 药品id
+     * @param ids 药品id
      */
-    public void deleteDrug(Long id) {
+    public void deleteDrug(List<Long> ids) {
         Long userId = getCurrentUserId();
-        log.info("当前供应端删除药品id：{}", id);
-        supplyMapper.deleteDrug(id);
+        log.info("当前供应端删除药品id：{}", ids);
+        supplyMapper.deleteDrug(ids);
         redisTemplate.delete("supply:drugs:" + userId);
     }
 

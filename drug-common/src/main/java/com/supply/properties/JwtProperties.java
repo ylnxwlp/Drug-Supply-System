@@ -17,4 +17,5 @@ public class JwtProperties {
     private long ttl;
     private String tokenName;
 
+
 }

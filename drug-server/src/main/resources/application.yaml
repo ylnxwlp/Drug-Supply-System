@@ -51,6 +51,7 @@ spring:
         acknowledge-mode: auto
         retry:
           enabled: true
+          stateless: false
 logging:
   file:
     name: drug-server/src/main/resources/templates/logs.log

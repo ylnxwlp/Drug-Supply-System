@@ -22,9 +22,9 @@ public interface SupplyService {
 
     void ModifyDrugsNumber(Long id, DrugNumberChangeDTO drugNumberChangeDTO);
 
-    void addDrugs(DrugInformationDTO drugInformationDTO);
+    void addDrugs(List<DrugInformationDTO> drugInformationDTO);
 
-    void deleteDrug(Long id);
+    void deleteDrug(List<Long> ids);
 
     List<RequestVO> getDrugRequestInformation();
 

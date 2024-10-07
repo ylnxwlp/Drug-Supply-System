@@ -1,6 +1,7 @@
 package com.supply.filter;
 
 import com.alibaba.fastjson.JSON;
+import com.supply.context.WebSocketContext;
 import com.supply.entity.LoginUser;
 import io.jsonwebtoken.Claims;
 import jakarta.servlet.FilterChain;
@@ -71,6 +72,11 @@ public class JwtAuthenticationTokenFilter extends OncePerRequestFilter {
 
         // 日志记录
         log.info("用户 {} 验证通过", userId);
+
+        //如果是websocket连接请求，保存当前用户信息
+        if(request.getRequestURI().equals("/chat")){
+            WebSocketContext.setCurrentId(Long.valueOf(userId));
+        }
 
         // 继续执行过滤器链
         filterChain.doFilter(request, response);
